@@ -2,6 +2,7 @@ import csv
 from datetime import datetime, date, timedelta
 from typing import List
 
+
 class Exercise:
     def __init__(self, name: str, setup: str, sets: int, reps: List[str], weight: List[str], rest_time: float) -> None:
         self.name = name
@@ -64,7 +65,7 @@ class Workout:
     def end(self) -> None:
         end_time = datetime.now()
         self.logs['end_time'] = end_time.strftime("%H:%M:%S")
-        hours, minutes, seceonds = self.calculate_passed_time()
+        hours, minutes, seconds = self.calculate_passed_time()
         self.logs['duration'] = hours * 60 + minutes
 
 
@@ -81,8 +82,8 @@ class Workout:
     
     
     def get_passed_time(self) -> str:
-        hours, minutes, seceonds = self.calculate_passed_time()
-        return f'{hours} hours, {minutes} minutes, {seceonds} seconds has passed'
+        hours, minutes, seconds = self.calculate_passed_time()
+        return f'{hours} hours, {minutes} minutes, {seconds} seconds has passed'
 
 
 

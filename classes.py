@@ -45,7 +45,7 @@ class Workout:
             "complexity": 7,
             "notes": ''
         }
-        self.exercise_list = []
+        exercise_list = []
 
         with open(path_to_csv, 'r') as f:
             reader = list(csv.reader(f))[1:]
@@ -60,7 +60,10 @@ class Workout:
                 sets_limit = int(row[7])
                 
                 exercise = Exercise(name, setup, sets, reps, weights, rest_time, increment, sets_limit)
-                self.exercise_list.append(exercise)
+                exercise_list.append(exercise)
+
+        self.exercise_list_gen = iter(exercise_list)
+        self.current_exercise = None
 
 
     def end(self) -> str:
@@ -146,8 +149,29 @@ class Workout:
             writer.writerow(header)
             writer.writerows(data_rows)
 
+    
+    def next_exercise(self) -> str:
+        try:
+            self.current_exercise = next(self.exercise_list_gen)
+            return "Moving to the next exercise"
+        except StopIteration:
+            self.current_exercise = None
+            return "There are no more exercises for today, please finish the workout"
+
+
+
+    def get_current_exercise(self):
+        if self.current_exercise is None:
+            return "No current exercise"
+        
+        return str(self.current_exercise)
 
 
 if __name__ == '__main__':
     w = Workout('programs/chest.csv')
-    w.increment_weight()
+    for i in range(5):
+        print(w.get_current_exercise())
+        print(' ')
+        print(w.next_exercise())
+        print(' ')
+    

@@ -103,11 +103,11 @@ class Workout:
             new_parts = []
             for part in parts:
                 if part.isdigit():
-                    new_parts.append(str(int(part) - 1))
+                    new_parts.append(str(int(part) + 1))
                 # if superset, e.g. 7+4/7+4
                 else:
                     singles = part.split('+')
-                    singles = [str(int(x) - 1) for x in singles]
+                    singles = [str(int(x) + 1) for x in singles]
                     new_parts.append('+'.join(singles))
 
             row[3] = '/'.join(new_parts)
@@ -118,7 +118,36 @@ class Workout:
             writer.writerows(data_rows)
 
 
+    def increment_weight(self):
+        with open(self.path, mode='r', newline='') as file:
+            reader = csv.reader(file)
+            rows = list(reader)
+
+        header = rows[0]
+        data_rows = rows[1:]
+
+        for row in data_rows:
+            increment = float(row[-2])
+            parts = row[4].split('/')
+            new_parts = []
+            for part in parts:
+                if part.isdigit():
+                    new_parts.append(str(float(part) + increment))
+                # if superset, e.g. 7+4/7+4
+                else:
+                    singles = part.split('+')
+                    singles = [str(float(x) + increment) for x in singles]
+                    new_parts.append('+'.join(singles))
+
+            row[4] = '/'.join(new_parts)
+
+        with open(self.path, mode='w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(header)
+            writer.writerows(data_rows)
+
+
 
 if __name__ == '__main__':
     w = Workout('programs/chest.csv')
-    w.increment_reps()
+    w.increment_weight()

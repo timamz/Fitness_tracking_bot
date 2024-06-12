@@ -4,7 +4,7 @@ from typing import List
 
 
 class Exercise:
-    def __init__(self, name: str, setup: str, sets: int, reps: List[str], weight: List[str], rest_time: float, increment: int) -> None:
+    def __init__(self, name: str, setup: str, sets: int, reps: List[str], weight: List[str], rest_time: float, increment: int, sets_limit: int) -> None:
         self.name = name
         self.setup = setup if setup != '-' else None
         self.sets = sets
@@ -12,6 +12,7 @@ class Exercise:
         self.weight = weight
         self.rest_time = rest_time
         self.increment = increment
+        self.sets_limit = sets_limit
 
 
     def __str__(self) -> str:
@@ -47,7 +48,7 @@ class Workout:
         self.exercise_list = []
 
         with open(path_to_csv, 'r') as f:
-            reader = csv.reader(f)
+            reader = list(csv.reader(f))[1:]
             for row in reader:
                 name = row[0]
                 setup = row[1]
@@ -56,8 +57,9 @@ class Workout:
                 weights = [weight for weight in row[4].split('/')]
                 rest_time = float(row[5])
                 increment = float(row[6])
+                sets_limit = int(row[7])
                 
-                exercise = Exercise(name, setup, sets, reps, weights, rest_time, increment)
+                exercise = Exercise(name, setup, sets, reps, weights, rest_time, increment, sets_limit)
                 self.exercise_list.append(exercise)
 
 
@@ -93,7 +95,10 @@ class Workout:
             reader = csv.reader(file)
             rows = list(reader)
 
-        for row in rows:
+        header = rows[0]
+        data_rows = rows[1:]
+
+        for row in data_rows:
             parts = row[3].split('/')
             new_parts = []
             for part in parts:
@@ -107,13 +112,10 @@ class Workout:
 
             row[3] = '/'.join(new_parts)
 
-        for row in rows:
-            print(*row)
-            print(' ')
-
         with open(self.path, mode='w', newline='') as file:
             writer = csv.writer(file)
-            writer.writerows(rows)
+            writer.writerow(header)
+            writer.writerows(data_rows)
 
 
 

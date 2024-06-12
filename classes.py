@@ -4,13 +4,14 @@ from typing import List
 
 
 class Exercise:
-    def __init__(self, name: str, setup: str, sets: int, reps: List[str], weight: List[str], rest_time: float) -> None:
+    def __init__(self, name: str, setup: str, sets: int, reps: List[str], weight: List[str], rest_time: float, increment: int) -> None:
         self.name = name
         self.setup = setup if setup != '-' else None
         self.sets = sets
         self.reps = reps
         self.weight = weight
         self.rest_time = rest_time
+        self.increment = increment
 
 
     def __str__(self) -> str:
@@ -25,10 +26,6 @@ class Exercise:
                 f"Rest Time: {self.rest_time}")
     
 
-    def process_exercise():
-        pass
-    
-
     def edit():
         pass 
         # TODO: add regex to check for editing
@@ -36,6 +33,7 @@ class Exercise:
 
 class Workout:
     def __init__(self, path_to_csv: str) -> None:
+        self.path = path_to_csv
         self.start_time = datetime.now()
         self.logs = {
             "name": (path_to_csv[9:]).split('.')[0],
@@ -57,16 +55,20 @@ class Workout:
                 reps = [rep for rep in row[3].split('/')]
                 weights = [weight for weight in row[4].split('/')]
                 rest_time = float(row[5])
+                increment = float(row[6])
                 
-                exercise = Exercise(name, setup, sets, reps, weights, rest_time)
+                exercise = Exercise(name, setup, sets, reps, weights, rest_time, increment)
                 self.exercise_list.append(exercise)
 
 
-    def end(self) -> None:
+    def end(self) -> str:
         end_time = datetime.now()
         self.logs['end_time'] = end_time.strftime("%H:%M:%S")
-        hours, minutes, seconds = self.calculate_passed_time()
+        hours, minutes = self.calculate_passed_time()
         self.logs['duration'] = hours * 60 + minutes
+
+        return (f"{self.logs['name'].capitalize()} workout is done!\n"
+                f"Today you have trained for {hours} hours, {minutes} minutes")
 
 
     # used for logging complexity and extra notes after workout
@@ -77,21 +79,44 @@ class Workout:
     def calculate_passed_time(self) -> tuple:
         delta = datetime.now() - self.start_time
         hours, remainder = divmod(delta.total_seconds(), 3600)
-        minutes, seconds = divmod(remainder, 60)
-        return int(hours), int(minutes), int(seconds)
+        minutes, _ = divmod(remainder, 60)
+        return int(hours), int(minutes)
     
     
     def get_passed_time(self) -> str:
-        hours, minutes, seconds = self.calculate_passed_time()
-        return f'{hours} hours, {minutes} minutes, {seconds} seconds has passed'
+        hours, minutes = self.calculate_passed_time()
+        return f'{hours} hours, {minutes} minutes'
+    
+
+    def increment_reps(self):
+        with open(self.path, mode='r', newline='') as file:
+            reader = csv.reader(file)
+            rows = list(reader)
+
+        for row in rows:
+            parts = row[3].split('/')
+            new_parts = []
+            for part in parts:
+                if part.isdigit():
+                    new_parts.append(str(int(part) - 1))
+                # if superset, e.g. 7+4/7+4
+                else:
+                    singles = part.split('+')
+                    singles = [str(int(x) - 1) for x in singles]
+                    new_parts.append('+'.join(singles))
+
+            row[3] = '/'.join(new_parts)
+
+        for row in rows:
+            print(*row)
+            print(' ')
+
+        with open(self.path, mode='w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerows(rows)
 
 
 
 if __name__ == '__main__':
-    import time
     w = Workout('programs/chest.csv')
-    time.sleep(2)
-    print(w.get_passed_time())
-    time.sleep(2)
-    w.end()
-    print(w.logs)
+    w.increment_reps()

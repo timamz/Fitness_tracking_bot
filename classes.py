@@ -1,6 +1,7 @@
 import csv
 from datetime import datetime, date, timedelta
 from typing import List
+from itertools import cycle
 
 
 class Exercise:
@@ -40,7 +41,7 @@ class Workout:
             "complexity": 7,
             "notes": ''
         }
-        exercise_list = []
+        self.exercise_list = []
 
         with open(path_to_csv, 'r') as f:
             reader = list(csv.reader(f))[1:]
@@ -55,10 +56,17 @@ class Workout:
                 sets_limit = int(row[7])
                 
                 exercise = Exercise(name, setup, sets, reps, weights, rest_time, increment, sets_limit)
-                exercise_list.append(exercise)
+                self.exercise_list.append(exercise)
 
-        self.exercise_list_gen = iter(exercise_list)
+        self.exercise_list_gen = iter(self.exercise_list)
         self.current_exercise = next(self.exercise_list_gen)
+        
+    
+    def __str__(self) -> str:
+        res = ''
+        for ex in self.exercise_list:
+            res += f'{str(ex)}\n\n'
+        return res
 
 
     def end(self) -> str:
@@ -144,7 +152,6 @@ class Workout:
                             break
                         
             self.increment_row_weight(row) if increment_weight else self.increment_row_reps(row)
-                        
 
         with open(self.path, mode='w', newline='') as file:
             writer = csv.writer(file)
@@ -197,12 +204,43 @@ class Workout:
         else:
             return f"Exercise {exercise_name} not found"
     
+    
+    def send_logs(self, path_to_csv: str) -> None:
+        with open(path_to_csv, mode='a', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow([self.logs['name'], self.logs['date'], self.logs['start_time'], self.logs['end_time'], self.logs['duration'], self.logs['complexity'], self.logs['notes']])
+            
+            
+    def calculate_expected_time(self) -> int:
+        total = 30 # warmup, waiting for someone, setting up, etc
+        for ex in self.exercise_list:
+            total += ex.sets + ex.rest_time * ex.sets 
+        return total
+    
 
+class TrainingProgram:
+    def __init__(self, paths: List[str]) -> None:
+        workouts_list = [Workout(path) for path in paths]
+        self.workouts = cycle(workouts_list)
+        self.current_workout = next(self.workouts)
+        
+    
+    def get_current_workout(self) -> Workout:
+        return self.current_workout
+    
+    
+    def progress(self) -> None:
+        self.current_workout.progress()
+    
+    
+    def move_to_next_workout(self) -> str:
+        self.current_workout = next(self.workouts)
+        return "Moving to the next workout"
+        
 
 if __name__ == '__main__':
-    w = Workout('programs/chest.csv')
-    for i in range(4):
-        print(w.get_current_exercise())
-        print(' ')
-        print(w.next_exercise())
-        print(' ')
+    pr = TrainingProgram(['programs_test/back.csv', 'programs_test/legs.csv', 'programs_test/chest.csv'])
+    for i in range(100):
+        print(str(pr.get_current_workout()))
+        
+        pr.move_to_next_workout()

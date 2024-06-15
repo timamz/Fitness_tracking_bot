@@ -1,6 +1,7 @@
 import os
 import telebot
 from telebot import types
+from classes import TrainingProgram, Exercise, Workout
 
 
 BOT_TOKEN = os.environ.get('BOT_TOKEN')

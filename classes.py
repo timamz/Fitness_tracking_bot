@@ -37,9 +37,7 @@ class Workout:
             "date": date.today().strftime("%Y.%m.%d"),
             "start_time": self.start_time.strftime("%H:%M:%S"),
             "end_time": None,
-            "duration": None,
-            "complexity": 7,
-            "notes": ''
+            "duration": None
         }
         self.exercise_list = []
 
@@ -74,14 +72,11 @@ class Workout:
         self.logs['end_time'] = end_time.strftime("%H:%M:%S")
         hours, minutes = self.calculate_passed_time()
         self.logs['duration'] = hours * 60 + minutes
+        self.send_logs("logs.csv")
 
         return (f"{self.logs['name'].capitalize()} workout is done!\n"
-                f"Today you have trained for {hours} hours, {minutes} minutes")
-
-
-    # used for logging complexity and extra notes after workout
-    def log_feedback(self, feedback_type: str, message: str) -> None:
-        self.logs[feedback_type] = message
+                f"Today you have trained for {hours} hours, {minutes} minutes"
+                f"\n\nTo start a new workout, type /begin")
 
 
     def calculate_passed_time(self) -> tuple:
@@ -165,7 +160,7 @@ class Workout:
             return "Moving to the next exercise"
         except StopIteration:
             self.current_exercise = None
-            return "There are no more exercises for today, please finish the workout"
+            return f"There are no more exercises for today, please finish the workout.\nTo end the workout, type /end"
         
     
     def get_name(self) -> str:
@@ -179,7 +174,7 @@ class Workout:
         return str(self.current_exercise)
     
     
-    def reset_current_exercise(self, exercise_name=None):
+    def reset_current_exercise(self, exercise_name=None) -> bool:
         """
         Resets the current_exercise attribute.
         If exercise_name is provided, it sets the current_exercise to the exercise with that name.
@@ -189,16 +184,20 @@ class Workout:
             reader = list(csv.reader(f))[1:]
             for row in reader:
                 if row[0] == exercise_name.capitalize():
-                    name = row[0]
-                    setup = row[1]
-                    sets = int(row[2])
-                    reps = [rep for rep in row[3].split('/')] if row[3] != '-' else None
-                    weights = [weight for weight in row[4].split('/')]
-                    rest_time = float(row[5])
-                    increment = float(row[6])
-                    sets_limit = int(row[7])
-                    
-                    self.current_exercise = Exercise(name, setup, sets, reps, weights, rest_time, increment, sets_limit)
+                    try:
+                        name = row[0]
+                        setup = row[1]
+                        sets = int(row[2])
+                        reps = [rep for rep in row[3].split('/')] if row[3] != '-' else None
+                        weights = [weight for weight in row[4].split('/')]
+                        rest_time = float(row[5])
+                        increment = float(row[6])
+                        sets_limit = int(row[7])
+                        
+                        self.current_exercise = Exercise(name, setup, sets, reps, weights, rest_time, increment, sets_limit)
+                        return 0
+                    except BaseException:
+                        return 1
     
 
     def edit_exercise(self, column_name: str, exercise_name: str, new_value: str) -> str:
@@ -225,8 +224,11 @@ class Workout:
                 writer = csv.writer(file)
                 writer.writerow(header)
                 writer.writerows(data_rows)
-            self.reset_current_exercise(exercise_name)
-            return f"{header[column_index].capitalize()} for {exercise_name} has been updated to {new_value}"
+            res = self.reset_current_exercise(exercise_name)
+            if res == 0:
+                return f"{header[column_index].capitalize()} for {exercise_name} has been updated to {new_value}"
+            else:
+                return "An error occurred while updating the exercise"
         else:
             return f"Exercise {exercise_name} not found"
     
@@ -234,7 +236,7 @@ class Workout:
     def send_logs(self, path_to_csv: str) -> None:
         with open(path_to_csv, mode='a', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow([self.logs['name'], self.logs['date'], self.logs['start_time'], self.logs['end_time'], self.logs['duration'], self.logs['complexity'], self.logs['notes']])
+            writer.writerow([self.logs['name'], self.logs['date'], self.logs['start_time'], self.logs['end_time'], self.logs['duration']])
             
             
     def calculate_expected_time(self) -> int:
@@ -257,14 +259,3 @@ class TrainingProgram:
     
     def move_to_next_workout(self) -> None:
         self.current_workout_path = next(self.workouts_paths)
-
-
-if __name__ == '__main__':
-    tp = TrainingProgram(['programs_test/legs.csv'])
-    tp.start_workout()
-    w = tp.workout
-    w.next_exercise()
-    print(w.get_current_exercise())
-    print('-----------------')
-    w.edit_exercise(column_name='reps', new_value='5/5/5', exercise_name='Squat')
-    print(w.get_current_exercise())

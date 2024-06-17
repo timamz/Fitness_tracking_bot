@@ -17,15 +17,15 @@ class Exercise:
 
 
     def __str__(self) -> str:
-        setup_str = self.setup if self.setup else 'No setup'
         reps_str = '/'.join(map(str, self.reps)) if self.reps is not None else '-'
         weights_str = '/'.join(map(str, self.weight))
         return (f"Exercise: {self.name}\n"
-                f"Setup: {setup_str}\n"
+                f"Setup: {self.setup}\n"
                 f"Sets: {self.sets}\n"
                 f"Reps: {reps_str}\n"
                 f"Weight: {weights_str}\n"
-                f"Rest Time: {self.rest_time}")
+                f"Rest Time: {self.rest_time}\n"
+                f"Increment: {self.increment}")
         
 
 class Workout:
@@ -33,7 +33,7 @@ class Workout:
         self.path = path_to_csv
         self.start_time = datetime.now()
         self.logs = {
-            "name": (path_to_csv[9:]).split('.')[0],
+            "name": (path_to_csv.split('/')[-1]).split('.')[0],
             "date": date.today().strftime("%Y.%m.%d"),
             "start_time": self.start_time.strftime("%H:%M:%S"),
             "end_time": None,
@@ -59,7 +59,7 @@ class Workout:
                 self.exercise_list.append(exercise)
 
         self.exercise_list_gen = iter(self.exercise_list)
-        self.current_exercise = next(self.exercise_list_gen)
+        self.current_exercise = None
         
     
     def __str__(self) -> str:
@@ -166,7 +166,10 @@ class Workout:
         except StopIteration:
             self.current_exercise = None
             return "There are no more exercises for today, please finish the workout"
-
+        
+    
+    def get_name(self) -> str:
+        return self.logs['name']
 
 
     def get_current_exercise(self):
@@ -174,6 +177,28 @@ class Workout:
             return "No current exercise"
         
         return str(self.current_exercise)
+    
+    
+    def reset_current_exercise(self, exercise_name=None):
+        """
+        Resets the current_exercise attribute.
+        If exercise_name is provided, it sets the current_exercise to the exercise with that name.
+        Otherwise, it resets to the first exercise in the list.
+        """
+        with open(self.path, 'r') as f:
+            reader = list(csv.reader(f))[1:]
+            for row in reader:
+                if row[0] == exercise_name.capitalize():
+                    name = row[0]
+                    setup = row[1]
+                    sets = int(row[2])
+                    reps = [rep for rep in row[3].split('/')] if row[3] != '-' else None
+                    weights = [weight for weight in row[4].split('/')]
+                    rest_time = float(row[5])
+                    increment = float(row[6])
+                    sets_limit = int(row[7])
+                    
+                    self.current_exercise = Exercise(name, setup, sets, reps, weights, rest_time, increment, sets_limit)
     
 
     def edit_exercise(self, column_name: str, exercise_name: str, new_value: str) -> str:
@@ -200,7 +225,8 @@ class Workout:
                 writer = csv.writer(file)
                 writer.writerow(header)
                 writer.writerows(data_rows)
-            return f"{exercise_name.capitalize()} {column_index} has been updated to {new_value}"
+            self.reset_current_exercise(exercise_name)
+            return f"{header[column_index].capitalize()} for {exercise_name} has been updated to {new_value}"
         else:
             return f"Exercise {exercise_name} not found"
     
@@ -220,27 +246,25 @@ class Workout:
 
 class TrainingProgram:
     def __init__(self, paths: List[str]) -> None:
-        workouts_list = [Workout(path) for path in paths]
-        self.workouts = cycle(workouts_list)
-        self.current_workout = next(self.workouts)
+        self.workouts_paths = cycle(paths)
+        self.current_workout_path = next(self.workouts_paths)
+        self.workout = None
         
     
-    def get_current_workout(self) -> Workout:
-        return self.current_workout
+    def start_workout(self) -> None:
+        self.workout = Workout(self.current_workout_path)
     
     
-    def progress(self) -> None:
-        self.current_workout.progress()
-    
-    
-    def move_to_next_workout(self) -> str:
-        self.current_workout = next(self.workouts)
-        return "Moving to the next workout"
-        
+    def move_to_next_workout(self) -> None:
+        self.current_workout_path = next(self.workouts_paths)
+
 
 if __name__ == '__main__':
-    pr = TrainingProgram(['programs_test/back.csv', 'programs_test/legs.csv', 'programs_test/chest.csv'])
-    for i in range(100):
-        print(str(pr.get_current_workout()))
-        
-        pr.move_to_next_workout()
+    tp = TrainingProgram(['programs_test/legs.csv'])
+    tp.start_workout()
+    w = tp.workout
+    w.next_exercise()
+    print(w.get_current_exercise())
+    print('-----------------')
+    w.edit_exercise(column_name='reps', new_value='5/5/5', exercise_name='Squat')
+    print(w.get_current_exercise())

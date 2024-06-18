@@ -3,20 +3,18 @@ import telebot
 from telebot import types
 from classes import TrainingProgram, Exercise, Workout
 from enum import Enum, auto
-
+import time
 
 class UserState(Enum):
     IDLE = auto()
     CHOOSING_EDIT_FIELD = auto()
     AWAITING_NEW_VALUE = auto()
-    
 
 user_states = {}
 TELEGRAM_ID = os.environ.get('TELEGRAM_ID')
 BOT_TOKEN = os.environ.get('BOT_TOKEN')
 bot = telebot.TeleBot(BOT_TOKEN)
 tp = TrainingProgram(['programs_test/chest.csv', 'programs_test/back.csv', 'programs_test/legs.csv'])
-what_to_edit = ""
 
 def get_user_state(user_id):
     return user_states.get(user_id, {'state': UserState.IDLE, 'edit_field': None})
@@ -30,7 +28,7 @@ def check_authorization(message):
         return False
     return True
 
-def add_keyboard_buttons(buttons: list[str]):
+def add_keyboard_buttons(buttons: list[str]) -> types.ReplyKeyboardMarkup:
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
     for button in buttons:
         markup.add(types.KeyboardButton(button))
@@ -41,7 +39,14 @@ def send_welcome(message):
     authorized = check_authorization(message)
     if not authorized: return
     
-    bot.send_message(message.chat.id, f"/begin - starts the workout\n/end - ends the workout\n/time - shows the time passed and the expected time left\n/edit - edit the current exercise\n/help - shows the list of commands\nclear_keyboard - removes the keyboard buttons")
+    bot.send_message(message.chat.id, f"""
+        /begin - starts the workout
+        /end - ends the workout
+        /time - shows the time passed and the expected time left
+        /edit - edit the current exercise
+        /help - shows the list of commands
+        /clear_keyboard - removes the keyboard buttons
+    """)
     
 @bot.message_handler(commands=['begin'])
 def start_workout(message):
@@ -52,13 +57,8 @@ def start_workout(message):
     # Starting the workout
     bot.send_message(message.chat.id, f"Starting {tp.workout.get_name()} workout")
 
-    # Creating the button for the next exercise
-    button = types.KeyboardButton("Go to next exercise")
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-    markup.add(button) 
-
-    # Sending the message with the keyboard for the next exercise
-    bot.send_message(message.chat.id, "Make sure to warm up, then press 'Go to next exercise' when you're ready.", reply_markup=markup)
+    markup = add_keyboard_buttons(["Go to the first exercise"])
+    bot.send_message(message.chat.id, "Make sure to warm up, then press 'Go to first exercise' when you're ready.", reply_markup=markup)
     
 @bot.message_handler(commands=['clear_keyboard'])
 def clear_keyboard(message):
@@ -75,8 +75,8 @@ def get_time(message):
     
     bot.send_message(message.chat.id, f"You have trained for {tp.workout.get_passed_time()}")
     hours, minutes = tp.workout.calculate_passed_time()
-    excepted_time_minutes = tp.workout.calculate_expected_time()
-    left = excepted_time_minutes - minutes - hours * 60
+    expected = tp.workout.calculate_expected_time()
+    left = expected - minutes - hours * 60
     hours_rem, minutes_rem = divmod(left, 60)
     bot.send_message(message.chat.id, f"Expected time left: {int(hours_rem)} hours and {int(minutes_rem)} minutes")
         
@@ -85,27 +85,24 @@ def end_workout(message):
     authorized = check_authorization(message)
     if not authorized: return
     
-    reply = tp.workout.end()
-    tp.workout.progress()
-    tp.move_to_next_workout()
-    bot.send_message(message.chat.id, reply)
+    try:
+        reply = tp.workout.end()
+        tp.workout.progress()
+        tp.move_to_next_workout()
+        bot.send_message(message.chat.id, reply)
+    except AttributeError:
+        bot.send_message(message.chat.id, "You have not started the workout yet. Please use the /begin command.")
 
-@bot.message_handler(func=lambda message: message.text == "Go to next exercise")
+@bot.message_handler(func=lambda message: message.text in ("Go to next exercise", "Go to the first exercise"))
 def next_exercise(message):
     authorized = check_authorization(message)
     if not authorized: return
     
     reply = tp.workout.next_exercise()
     if reply == "Moving to the next exercise":
-        # Create each button separately
-        button1 = types.KeyboardButton("Go to next exercise")
-        button2 = types.KeyboardButton("Edit exercise")
-        markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-        # Add buttons to the markup
-        markup.add(button1, button2)
+        markup = add_keyboard_buttons(["Go to next exercise", "Edit exercise", "Start rest"])
         bot.send_message(message.chat.id, f"{tp.workout.get_current_exercise()}", reply_markup=markup)
     else:
-        # TODO: Add the end workout button
         bot.send_message(message.chat.id, f"{reply}")
 
 @bot.message_handler(func=lambda message: message.text == "Edit exercise")
@@ -113,13 +110,25 @@ def start_edit(message):
     authorized = check_authorization(message)
     if not authorized: return
     
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-    fields = ['setup', 'sets', 'reps', 'weight', 'rest_time', 'increment']
-    for field in fields:
-        markup.add(types.KeyboardButton(field))
+    markup = add_keyboard_buttons(["setup", "sets", "reps", "weight", "rest_time", "increment"])
     bot.send_message(message.chat.id, "Please choose what to edit:", reply_markup=markup)
     user_states[message.chat.id] = {'state': UserState.CHOOSING_EDIT_FIELD, 'edit_field': None}
-
+    
+@bot.message_handler(func=lambda message: message.text == "Start rest")
+def start_rest(message):
+    authorized = check_authorization(message)
+    if not authorized: return
+    
+    rest_time = tp.workout.current_exercise.rest_time
+    rest_time_seconds = int(rest_time * 60)
+    bot.send_message(message.chat.id, f"Starting {rest_time} minutes rest")
+    time.sleep(rest_time_seconds - 30)
+    bot.send_message(message.chat.id, "30 seconds left")
+    time.sleep(30)
+    
+    markup = add_keyboard_buttons(["Go to next exercise", "Edit exercise", "Start rest"])
+    bot.send_message(message.chat.id, "Rest time is up, start the next set!", reply_markup=markup)
+    
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
     authorized = check_authorization(message)
@@ -133,17 +142,17 @@ def handle_message(message):
     elif user_state['state'] == UserState.AWAITING_NEW_VALUE:
         new_value = message.text
         edit_field = user_state['edit_field']
-        # Here, call the function to update the exercise with new_value for edit_field
-        reply = tp.workout.edit_exercise(column_name=edit_field, exercise_name=tp.workout.current_exercise.name, new_value=new_value)
-        bot.send_message(message.chat.id, reply)
-        user_states[message.chat.id] = {'state': UserState.IDLE, 'edit_field': None}
-        markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-        fields = {'Go to next exercise', 'Edit exercise'}
-        for field in fields:
-            markup.add(types.KeyboardButton(field))
-        bot.send_message(message.chat.id, tp.workout.get_current_exercise(), reply_markup=markup)
+        try:
+            reply = tp.workout.edit_exercise(column_name=edit_field, exercise_name=tp.workout.current_exercise.name, new_value=new_value)
+            bot.send_message(message.chat.id, reply)
+            user_states[message.chat.id] = {'state': UserState.IDLE, 'edit_field': None}
+            markup = add_keyboard_buttons(["Go to next exercise", "Edit exercise", "Start rest"])
+            bot.send_message(message.chat.id, tp.workout.get_current_exercise(), reply_markup=markup)
+        except BaseException as e:
+            reply = f"An error occurred while updating the exercise: {e}"
+            markup = add_keyboard_buttons(["Go to next exercise", "Edit exercise", "Start rest"])
+            bot.send_message(message.chat.id, reply, reply_markup=markup)
     else:
         bot.send_message(message.chat.id, "To start editing, please use the /edit command.")
-        
-    
+
 bot.infinity_polling()

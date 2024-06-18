@@ -4,38 +4,49 @@ from telebot import types
 from classes import TrainingProgram, Exercise, Workout
 from enum import Enum, auto
 
+
 class UserState(Enum):
     IDLE = auto()
     CHOOSING_EDIT_FIELD = auto()
     AWAITING_NEW_VALUE = auto()
+    
 
 user_states = {}
+TELEGRAM_ID = os.environ.get('TELEGRAM_ID')
+BOT_TOKEN = os.environ.get('BOT_TOKEN')
+bot = telebot.TeleBot(BOT_TOKEN)
+tp = TrainingProgram(['programs_test/chest.csv', 'programs_test/back.csv', 'programs_test/legs.csv'])
+what_to_edit = ""
+
 def get_user_state(user_id):
     return user_states.get(user_id, {'state': UserState.IDLE, 'edit_field': None})
 
-TELEGRAM_ID = os.environ.get('TELEGRAM_ID')
-def is_authorized(user_id):
-    return int(user_id) == int(TELEGRAM_ID)
+def check_authorization(message):
+    def is_authorized(user_id):
+        return int(user_id) == int(TELEGRAM_ID)
+    
+    if not is_authorized(message.chat.id):
+        bot.send_message(message.chat.id, "You are not authorized to use this bot.")
+        return False
+    return True
 
-BOT_TOKEN = os.environ.get('BOT_TOKEN')
-bot = telebot.TeleBot(BOT_TOKEN)
-
-tp = TrainingProgram(['programs_test/chest.csv', 'programs_test/back.csv', 'programs_test/legs.csv'])
-what_to_edit = ""
+def add_keyboard_buttons(buttons: list[str]):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    for button in buttons:
+        markup.add(types.KeyboardButton(button))
+    return markup
     
 @bot.message_handler(commands=['start', 'help'])    
 def send_welcome(message):
-    if not is_authorized(message.chat.id):
-        bot.send_message(message.chat.id, "You are not authorized to use this bot.")
-        return
+    authorized = check_authorization(message)
+    if not authorized: return
     
     bot.send_message(message.chat.id, f"/begin - starts the workout\n/end - ends the workout\n/time - shows the time passed and the expected time left\n/edit - edit the current exercise\n/help - shows the list of commands\nclear_keyboard - removes the keyboard buttons")
     
 @bot.message_handler(commands=['begin'])
 def start_workout(message):
-    if not is_authorized(message.chat.id):
-        bot.send_message(message.chat.id, "You are not authorized to use this bot.")
-        return
+    authorized = check_authorization(message)
+    if not authorized: return
     
     tp.start_workout()
     # Starting the workout
@@ -51,18 +62,16 @@ def start_workout(message):
     
 @bot.message_handler(commands=['clear_keyboard'])
 def clear_keyboard(message):
-    if not is_authorized(message.chat.id):
-        bot.send_message(message.chat.id, "You are not authorized to use this bot.")
-        return
+    authorized = check_authorization(message)
+    if not authorized: return
     
     markup = types.ReplyKeyboardRemove(selective=False)
     bot.send_message(message.chat.id, "Keyboard buttons have been removed", reply_markup=markup)
     
 @bot.message_handler(commands=['time'])
 def get_time(message):
-    if not is_authorized(message.chat.id):
-        bot.send_message(message.chat.id, "You are not authorized to use this bot.")
-        return
+    authorized = check_authorization(message)
+    if not authorized: return
     
     bot.send_message(message.chat.id, f"You have trained for {tp.workout.get_passed_time()}")
     hours, minutes = tp.workout.calculate_passed_time()
@@ -73,9 +82,8 @@ def get_time(message):
         
 @bot.message_handler(commands=['end'])
 def end_workout(message):
-    if not is_authorized(message.chat.id):
-        bot.send_message(message.chat.id, "You are not authorized to use this bot.")
-        return
+    authorized = check_authorization(message)
+    if not authorized: return
     
     reply = tp.workout.end()
     tp.workout.progress()
@@ -84,9 +92,8 @@ def end_workout(message):
 
 @bot.message_handler(func=lambda message: message.text == "Go to next exercise")
 def next_exercise(message):
-    if not is_authorized(message.chat.id):
-        bot.send_message(message.chat.id, "You are not authorized to use this bot.")
-        return
+    authorized = check_authorization(message)
+    if not authorized: return
     
     reply = tp.workout.next_exercise()
     if reply == "Moving to the next exercise":
@@ -103,9 +110,8 @@ def next_exercise(message):
 
 @bot.message_handler(func=lambda message: message.text == "Edit exercise")
 def start_edit(message):
-    if not is_authorized(message.chat.id):
-        bot.send_message(message.chat.id, "You are not authorized to use this bot.")
-        return
+    authorized = check_authorization(message)
+    if not authorized: return
     
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
     fields = ['setup', 'sets', 'reps', 'weight', 'rest_time', 'increment']
@@ -116,9 +122,8 @@ def start_edit(message):
 
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
-    if not is_authorized(message.chat.id):
-        bot.send_message(message.chat.id, "You are not authorized to use this bot.")
-        return
+    authorized = check_authorization(message)
+    if not authorized: return
     
     user_state = get_user_state(message.chat.id)
     

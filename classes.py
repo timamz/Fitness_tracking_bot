@@ -242,7 +242,7 @@ class Workout:
     def calculate_expected_time(self) -> int:
         total = 30 # warmup, waiting for someone, setting up, etc
         for ex in self.exercise_list:
-            total += ex.sets + ex.rest_time * ex.sets 
+            total += ex.sets + ex.rest_time * ex.sets # one set takes one minute (it is technically ex.sets * 1)
         return total
     
 

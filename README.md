@@ -1,0 +1,1 @@
+### This is my personal fitness tracker with implemented Telegram UI. I use this bot on the weekly basis to track my fitness progress. The main feature of the bot is that it applies linear progression to reps and weight for each exercises in the training program, which is the most crucial part for hypertrophy ###

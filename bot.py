@@ -14,7 +14,7 @@ user_states = {}
 TELEGRAM_ID = os.environ.get('TELEGRAM_ID')
 BOT_TOKEN = os.environ.get('BOT_TOKEN')
 bot = telebot.TeleBot(BOT_TOKEN)
-tp = TrainingProgram(['programs_test/chest.csv', 'programs_test/back.csv', 'programs_test/legs.csv'])
+tp = TrainingProgram(['programs/chest.csv', 'programs/back.csv', 'programs/legs.csv'])
 
 def get_user_state(user_id):
     return user_states.get(user_id, {'state': UserState.IDLE, 'edit_field': None})

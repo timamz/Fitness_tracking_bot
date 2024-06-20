@@ -4,7 +4,6 @@ from telebot import types
 from classes import TrainingProgram, Exercise, Workout
 from enum import Enum, auto
 import time
-from dotenv import load_dotenv
 
 class UserState(Enum):
     IDLE = auto()

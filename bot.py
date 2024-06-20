@@ -4,6 +4,7 @@ from telebot import types
 from classes import TrainingProgram, Exercise, Workout
 from enum import Enum, auto
 import time
+from dotenv import load_dotenv
 
 class UserState(Enum):
     IDLE = auto()
@@ -39,14 +40,15 @@ def send_welcome(message):
     authorized = check_authorization(message)
     if not authorized: return
     
-    bot.send_message(message.chat.id, f"""
-        /begin - starts the workout
-        /end - ends the workout
-        /time - shows the time passed and the expected time left
-        /edit - edit the current exercise
-        /help - shows the list of commands
-        /clear_keyboard - removes the keyboard buttons
-    """)
+    commands = [
+        "/begin - starts the workout",
+        "/end - ends the workout",
+        "/time - shows the time passed and the expected time left",
+        "/edit - edit the current exercise",
+        "/help - shows the list of commands",
+        "/clear_keyboard - removes the keyboard buttons"
+    ]
+    bot.send_message(message.chat.id, "\n".join(commands))
     
 @bot.message_handler(commands=['begin'])
 def start_workout(message):
